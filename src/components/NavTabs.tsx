@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
-import { BarChart3, LayoutDashboard, Settings, UserPlus } from 'lucide-react';
+import { BarChart3, ClipboardCheck, LayoutDashboard, Settings, UserPlus } from 'lucide-react';
 
-export type Tab = 'dashboard' | 'predict' | 'students' | 'settings';
+export type Tab = 'dashboard' | 'predict' | 'students' | 'validation' | 'settings';
 
 interface NavTabsProps {
   active: Tab;
@@ -13,6 +13,7 @@ const tabs: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'predict', label: 'Predict', icon: UserPlus },
   { id: 'students', label: 'Students', icon: BarChart3 },
+  { id: 'validation', label: 'Validation', icon: ClipboardCheck },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
@@ -43,6 +44,11 @@ export function NavTabs({ active, onChange, studentCount }: NavTabsProps) {
               {tab.id === 'students' && studentCount > 0 && (
                 <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-brand-500/30 text-brand-300">
                   {studentCount}
+                </span>
+              )}
+              {tab.id === 'validation' && (
+                <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-emerald-500/30 text-emerald-300">
+                  v2
                 </span>
               )}
             </span>

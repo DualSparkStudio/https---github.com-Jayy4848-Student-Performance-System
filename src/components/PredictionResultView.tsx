@@ -39,6 +39,9 @@ export function PredictionResultView({ student, result }: PredictionResultProps)
             <div className="text-center p-4 rounded-xl bg-surface-700/50">
               <p className="text-3xl font-display font-bold text-brand-400">{result.predictedScore}%</p>
               <p className="text-xs text-gray-500 mt-1">Predicted Score</p>
+              <p className="text-xs text-gray-600 mt-0.5">
+                {result.predictionInterval.lower}–{result.predictionInterval.upper}%
+              </p>
             </div>
             <div className="text-center p-4 rounded-xl bg-surface-700/50">
               <p className="text-3xl font-display font-bold text-white">{result.predictedGPA}</p>
@@ -46,7 +49,8 @@ export function PredictionResultView({ student, result }: PredictionResultProps)
             </div>
             <div className="text-center p-4 rounded-xl bg-surface-700/50">
               <p className="text-3xl font-display font-bold text-emerald-400">{result.confidence}%</p>
-              <p className="text-xs text-gray-500 mt-1">Confidence</p>
+              <p className="text-xs text-gray-500 mt-1">Model Confidence</p>
+              <p className="text-xs text-gray-600 mt-0.5">±{result.expectedError.toFixed(1)}% MAE</p>
             </div>
             <div className="text-center p-4 rounded-xl bg-surface-700/50">
               <div className={`flex items-center justify-center gap-1 ${trendColor}`}>
@@ -98,6 +102,10 @@ export function PredictionResultView({ student, result }: PredictionResultProps)
           )}
         </motion.div>
       </div>
+
+      <p className="text-xs text-gray-600 text-center">
+        Prediction by validated model v{result.modelVersion} · UCI Student Performance Dataset
+      </p>
     </motion.div>
   );
 }

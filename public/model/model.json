@@ -1,0 +1,165 @@
+{
+  "version": "2.0.0",
+  "algorithm": "Ridge Regression (L2-regularized linear model)",
+  "dataset": {
+    "name": "UCI Student Performance Data Set",
+    "source": "https://archive.ics.uci.edu/dataset/320/student+performance",
+    "citation": "Cortez and Silva (2008). Using Data Mining To Predict Secondary School Student Performance.",
+    "samples": 1044,
+    "subjects": [
+      "Mathematics",
+      "Portuguese"
+    ],
+    "institution": "Secondary schools, Portugal"
+  },
+  "features": [
+    "attendance",
+    "previousGPA",
+    "studyHoursPerWeek",
+    "assignmentCompletion",
+    "examScoreAvg",
+    "participationScore",
+    "sleepHours",
+    "extracurricularHours",
+    "parentalSupport"
+  ],
+  "featureDescriptions": {
+    "attendance": "Class attendance percentage (mapped from absence records)",
+    "previousGPA": "Previous term GPA on 4.0 scale (mapped from G2 grade)",
+    "studyHoursPerWeek": "Weekly study hours (mapped from study time scale)",
+    "assignmentCompletion": "Assignment completion % (inverse of past course failures)",
+    "examScoreAvg": "Average exam score % (mapped from G1 grade)",
+    "participationScore": "Class participation (family relationship + activities)",
+    "sleepHours": "Average sleep hours (mapped from health indicator)",
+    "extracurricularHours": "Weekly extracurricular hours",
+    "parentalSupport": "Parental support index (education level + family support)"
+  },
+  "target": "Final course grade (G3) normalized to 0-100 percentage",
+  "scaler": {
+    "mean": [
+      95.21655089820348,
+      2.2608383233532936,
+      7.861077844311377,
+      93.95209580838323,
+      56.203592814371255,
+      74.9125748502994,
+      8.18610778443113,
+      6.537724550898203,
+      50.631736526946106
+    ],
+    "std": [
+      6.808869388906906,
+      0.656053719479356,
+      3.3680223998892664,
+      15.979331104701815,
+      14.931596094925228,
+      17.252913247502146,
+      1.290731051406587,
+      1.6399071379604937,
+      15.47542030160797
+    ]
+  },
+  "regression": {
+    "intercept": 57.06586826347307,
+    "coefficients": [
+      -0.7713624394576793,
+      15.338865208512088,
+      -0.42417288836560557,
+      0.9851535120208601,
+      2.2864506533552427,
+      0.14707421649506514,
+      -0.04691265658183313,
+      -0.4166953066525848,
+      -0.033249696572105046
+    ]
+  },
+  "riskThresholds": {
+    "excellent": 85,
+    "good": 70,
+    "moderate": 55,
+    "at-risk": 40,
+    "critical": 0
+  },
+  "validation": {
+    "methodology": "80/20 train-test split + 5-fold cross-validation on full dataset",
+    "crossValidation": {
+      "folds": 5,
+      "r2Mean": 0.8077,
+      "r2Std": 0.0598,
+      "maeMean": 4.7853,
+      "maeStd": 0.7829,
+      "rmseMean": 7.8228,
+      "rmseStd": 2.0446
+    },
+    "holdoutTest": {
+      "r2": 0.8066,
+      "mae": 4.7648,
+      "rmse": 8.647,
+      "riskClassificationAccuracy": 0.7368
+    },
+    "fullDatasetCV": {
+      "r2": 0.8248,
+      "mae": 4.7848,
+      "rmse": 8.0855
+    },
+    "riskClassifier": {
+      "algorithm": "Multinomial Logistic Regression",
+      "cvAccuracyMean": 0.7692,
+      "cvAccuracyStd": 0.0501,
+      "holdoutAccuracy": 0.8373
+    },
+    "residualStdDev": 7.8332,
+    "classificationReport": {
+      "at-risk": {
+        "precision": 0.6666666666666666,
+        "recall": 0.7076923076923077,
+        "f1-score": 0.6865671641791045,
+        "support": 65.0
+      },
+      "critical": {
+        "precision": 0.5,
+        "recall": 0.8181818181818182,
+        "f1-score": 0.6206896551724138,
+        "support": 22.0
+      },
+      "excellent": {
+        "precision": 1.0,
+        "recall": 0.8181818181818182,
+        "f1-score": 0.9,
+        "support": 11.0
+      },
+      "good": {
+        "precision": 0.9411764705882353,
+        "recall": 0.7441860465116279,
+        "f1-score": 0.8311688311688312,
+        "support": 43.0
+      },
+      "moderate": {
+        "precision": 0.8032786885245902,
+        "recall": 0.7205882352941176,
+        "f1-score": 0.7596899224806202,
+        "support": 68.0
+      },
+      "accuracy": 0.7368421052631579,
+      "macro avg": {
+        "precision": 0.7822243651558983,
+        "recall": 0.7617660451723379,
+        "f1-score": 0.7596231146001939,
+        "support": 209.0
+      },
+      "weighted avg": {
+        "precision": 0.7675926908531081,
+        "recall": 0.7368421052631579,
+        "f1-score": 0.7444077155711809,
+        "support": 209.0
+      }
+    },
+    "interpretation": {
+      "r2": "Proportion of grade variance explained by the model (0-1, higher is better)",
+      "mae": "Mean Absolute Error in percentage points on final grade prediction",
+      "rmse": "Root Mean Square Error \u2014 penalizes large prediction errors",
+      "riskAccuracy": "How often predicted risk tier matches actual outcome tier"
+    }
+  },
+  "trainedAt": "2026-05-31T15:11:13.666697+00:00"
+}

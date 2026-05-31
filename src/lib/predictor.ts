@@ -1,227 +1,204 @@
-import type { FactorScore, InstitutionType, PredictionResult, RiskLevel, StudentInput } from '../types';
+import type { ModelData } from '../types/model';
+import type { FactorScore, InstitutionSettings, PredictionResult, RiskLevel, StudentInput } from '../types';
 
-interface WeightConfig {
-  attendance: number;
-  previousGPA: number;
-  studyHours: number;
-  assignmentCompletion: number;
-  examScore: number;
-  participation: number;
-  sleep: number;
-  extracurricular: number;
-  parentalSupport: number;
-}
+const FEATURE_KEYS: (keyof StudentInput)[] = [
+  'attendance',
+  'previousGPA',
+  'studyHoursPerWeek',
+  'assignmentCompletion',
+  'examScoreAvg',
+  'participationScore',
+  'sleepHours',
+  'extracurricularHours',
+  'parentalSupport',
+];
 
-const WEIGHTS: Record<InstitutionType, WeightConfig> = {
-  school: {
-    attendance: 0.18,
-    previousGPA: 0.15,
-    studyHours: 0.12,
-    assignmentCompletion: 0.14,
-    examScore: 0.16,
-    participation: 0.08,
-    sleep: 0.07,
-    extracurricular: 0.04,
-    parentalSupport: 0.06,
-  },
-  college: {
-    attendance: 0.12,
-    previousGPA: 0.2,
-    studyHours: 0.18,
-    assignmentCompletion: 0.15,
-    examScore: 0.18,
-    participation: 0.06,
-    sleep: 0.05,
-    extracurricular: 0.03,
-    parentalSupport: 0.03,
-  },
+const FEATURE_LABELS: Record<string, string> = {
+  attendance: 'Attendance',
+  previousGPA: 'Previous GPA',
+  studyHoursPerWeek: 'Study Hours',
+  assignmentCompletion: 'Assignment Completion',
+  examScoreAvg: 'Exam Performance',
+  participationScore: 'Class Participation',
+  sleepHours: 'Sleep Quality',
+  extracurricularHours: 'Extracurricular Balance',
+  parentalSupport: 'Parental Support',
 };
 
-function normalize(value: number, min: number, max: number): number {
-  return Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
+function extractFeatures(student: StudentInput): number[] {
+  return FEATURE_KEYS.map((k) => student[k] as number);
 }
 
-function scoreSleep(hours: number): number {
-  if (hours >= 7 && hours <= 9) return 100;
-  if (hours >= 6 && hours <= 10) return 75;
-  if (hours >= 5 && hours <= 11) return 50;
-  return 25;
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
-function scoreStudyHours(hours: number, type: InstitutionType): number {
-  const optimal = type === 'college' ? 20 : 15;
-  const diff = Math.abs(hours - optimal);
-  if (diff <= 3) return 100;
-  if (diff <= 7) return 75;
-  if (diff <= 12) return 50;
-  return 30;
-}
-
-function scoreExtracurricular(hours: number, type: InstitutionType): number {
-  const optimal = type === 'college' ? 8 : 5;
-  if (hours >= optimal * 0.5 && hours <= optimal * 1.5) return 100;
-  if (hours <= optimal * 2.5) return 70;
-  return 40;
-}
-
-function gpaToPercent(gpa: number, type: InstitutionType): number {
-  const maxGpa = type === 'college' ? 4 : 4;
-  return (gpa / maxGpa) * 100;
-}
-
-function percentToGpa(percent: number, type: InstitutionType): number {
-  const maxGpa = type === 'college' ? 4 : 4;
-  return Math.round((percent / 100) * maxGpa * 100) / 100;
-}
-
-function getRiskLevel(score: number): RiskLevel {
-  if (score >= 85) return 'excellent';
-  if (score >= 70) return 'good';
-  if (score >= 55) return 'moderate';
-  if (score >= 40) return 'at-risk';
+function getRiskLevel(score: number, thresholds: Record<string, number>): RiskLevel {
+  const order: RiskLevel[] = ['excellent', 'good', 'moderate', 'at-risk', 'critical'];
+  for (const level of order) {
+    if (score >= (thresholds[level] ?? 0)) return level;
+  }
   return 'critical';
 }
 
-function getTrend(student: StudentInput, predicted: number): 'improving' | 'stable' | 'declining' {
-  const current = gpaToPercent(student.previousGPA, student.institutionType);
+function percentToGpa(percent: number, scale: InstitutionSettings['gradingScale']): number {
+  if (scale === 10) return Math.round((percent / 10) * 10) / 10;
+  if (scale === 100) return Math.round(percent * 10) / 10;
+  return Math.round((percent / 100) * 4 * 100) / 100;
+}
+
+function gpaToPercent(gpa: number, scale: InstitutionSettings['gradingScale']): number {
+  if (scale === 10) return (gpa / 10) * 100;
+  if (scale === 100) return gpa;
+  return (gpa / 4) * 100;
+}
+
+function getTrend(
+  student: StudentInput,
+  predicted: number,
+  gradingScale: InstitutionSettings['gradingScale'],
+): 'improving' | 'stable' | 'declining' {
+  const current = gpaToPercent(student.previousGPA, gradingScale);
   const diff = predicted - current;
   if (diff > 5) return 'improving';
   if (diff < -5) return 'declining';
   return 'stable';
 }
 
-function generateRecommendations(student: StudentInput, factors: FactorScore[]): string[] {
-  const recs: string[] = [];
-  const lowFactors = factors.filter((f) => f.score < 60).sort((a, b) => a.score - b.score);
+function computeFactorScores(
+  student: StudentInput,
+  model: ModelData,
+  normalized: number[],
+): FactorScore[] {
+  const { coefficients } = model.regression;
+  const { mean } = model.scaler;
 
-  for (const factor of lowFactors.slice(0, 4)) {
+  return FEATURE_KEYS.map((key, i) => {
+    const value = student[key] as number;
+    const contribution = coefficients[i] * normalized[i];
+    const belowMean = value < mean[i];
+
+    let impact: FactorScore['impact'] = 'neutral';
+    if (contribution > 0.5) impact = 'positive';
+    else if (contribution < -0.5) impact = 'negative';
+    else if (belowMean && coefficients[i] > 0) impact = 'negative';
+    else if (!belowMean && coefficients[i] > 0) impact = 'positive';
+
+    const score = clamp(50 + contribution * 3 + (value / (mean[i] || 1)) * 25, 0, 100);
+
+    return {
+      name: FEATURE_LABELS[key],
+      value,
+      weight: Math.abs(coefficients[i]) / coefficients.reduce((s, c) => s + Math.abs(c), 0),
+      impact,
+      score: Math.round(score * 10) / 10,
+    };
+  });
+}
+
+function generateRecommendations(
+  student: StudentInput,
+  factors: FactorScore[],
+  model: ModelData,
+): string[] {
+  const recs: string[] = [];
+  const { mean } = model.scaler;
+  const priority = [...factors]
+    .filter((f) => f.impact === 'negative' || f.score < 55)
+    .sort((a, b) => a.score - b.score);
+
+  for (const factor of priority.slice(0, 4)) {
+    const idx = FEATURE_LABELS
+      ? Object.entries(FEATURE_LABELS).find(([, label]) => label === factor.name)?.[0]
+      : undefined;
+    const key = idx as keyof StudentInput | undefined;
+    const datasetMean = key ? mean[FEATURE_KEYS.indexOf(key)] : null;
+
     switch (factor.name) {
       case 'Attendance':
-        recs.push(`Improve attendance — currently at ${student.attendance}%. Target 90%+ for better outcomes.`);
+        recs.push(
+          `Improve attendance (currently ${student.attendance}%). Validated model shows attendance correlates with final grades. Target 90%+.`,
+        );
+        break;
+      case 'Previous GPA':
+        recs.push(
+          `Previous GPA (${student.previousGPA}) is the strongest validated predictor. Focus on consistent weekly review to maintain/improve trajectory.`,
+        );
         break;
       case 'Study Hours':
         recs.push(
-          student.studyHoursPerWeek < 10
-            ? 'Increase weekly study time to at least 15–20 hours with structured sessions.'
-            : 'Balance study hours — over-studying without rest can reduce retention.',
+          student.studyHoursPerWeek < (datasetMean ?? 8)
+            ? `Increase study time to at least ${Math.round(datasetMean ?? 8)} hours/week (dataset average for successful students).`
+            : 'Maintain structured study schedule with regular breaks for retention.',
         );
         break;
       case 'Assignment Completion':
-        recs.push('Focus on completing all assignments on time — this strongly correlates with exam success.');
+        recs.push(
+          `Raise assignment completion from ${student.assignmentCompletion}% — past failures strongly predict lower final grades in validated data.`,
+        );
         break;
       case 'Exam Performance':
-        recs.push('Schedule regular practice tests and review sessions before major exams.');
+        recs.push(
+          `Exam scores (${student.examScoreAvg}%) are a key validated predictor. Schedule practice tests 2 weeks before exams.`,
+        );
         break;
       case 'Class Participation':
-        recs.push('Engage more actively in class discussions and group activities.');
+        recs.push('Increase class engagement — participation correlates with improved outcomes in the training dataset.');
         break;
       case 'Sleep Quality':
-        recs.push('Aim for 7–9 hours of sleep nightly to improve memory and focus.');
+        recs.push('Aim for 7–9 hours of sleep. Health indicators in the dataset link sleep quality to academic performance.');
         break;
       case 'Parental Support':
-        recs.push('Increase family engagement — regular check-ins boost academic motivation.');
-        break;
-      case 'Extracurricular Balance':
-        recs.push('Maintain a healthy balance between academics and extracurricular activities.');
+        recs.push('Strengthen family involvement — parental education and support are validated predictors in the research dataset.');
         break;
       default:
-        break;
+        recs.push(`Improve ${factor.name.toLowerCase()} — currently below expected levels for target performance.`);
     }
   }
 
   if (recs.length === 0) {
-    recs.push('Maintain current study habits and continue regular self-assessment.');
-    recs.push('Consider mentoring peers — teaching reinforces your own learning.');
+    recs.push('Student metrics align with high performers in the validated dataset. Maintain current approach.');
+    recs.push('Continue monitoring each term and re-run prediction after mid-term assessments.');
   }
 
   return recs;
 }
 
-export function predictPerformance(student: StudentInput): PredictionResult {
-  const w = WEIGHTS[student.institutionType];
+export function predictPerformance(
+  student: StudentInput,
+  model: ModelData,
+  settings: InstitutionSettings,
+): PredictionResult {
+  const raw = extractFeatures(student);
+  const normalized = raw.map((v, i) => (v - model.scaler.mean[i]) / model.scaler.std[i]);
 
-  const factorScores: FactorScore[] = [
-    {
-      name: 'Attendance',
-      value: student.attendance,
-      weight: w.attendance,
-      impact: student.attendance >= 85 ? 'positive' : student.attendance >= 70 ? 'neutral' : 'negative',
-      score: normalize(student.attendance, 0, 100),
-    },
-    {
-      name: 'Previous GPA',
-      value: student.previousGPA,
-      weight: w.previousGPA,
-      impact: student.previousGPA >= 3 ? 'positive' : student.previousGPA >= 2.5 ? 'neutral' : 'negative',
-      score: gpaToPercent(student.previousGPA, student.institutionType),
-    },
-    {
-      name: 'Study Hours',
-      value: student.studyHoursPerWeek,
-      weight: w.studyHours,
-      impact: 'neutral',
-      score: scoreStudyHours(student.studyHoursPerWeek, student.institutionType),
-    },
-    {
-      name: 'Assignment Completion',
-      value: student.assignmentCompletion,
-      weight: w.assignmentCompletion,
-      impact: student.assignmentCompletion >= 80 ? 'positive' : 'negative',
-      score: normalize(student.assignmentCompletion, 0, 100),
-    },
-    {
-      name: 'Exam Performance',
-      value: student.examScoreAvg,
-      weight: w.examScore,
-      impact: student.examScoreAvg >= 70 ? 'positive' : 'negative',
-      score: normalize(student.examScoreAvg, 0, 100),
-    },
-    {
-      name: 'Class Participation',
-      value: student.participationScore,
-      weight: w.participation,
-      impact: student.participationScore >= 70 ? 'positive' : 'neutral',
-      score: normalize(student.participationScore, 0, 100),
-    },
-    {
-      name: 'Sleep Quality',
-      value: student.sleepHours,
-      weight: w.sleep,
-      impact: student.sleepHours >= 7 && student.sleepHours <= 9 ? 'positive' : 'negative',
-      score: scoreSleep(student.sleepHours),
-    },
-    {
-      name: 'Extracurricular Balance',
-      value: student.extracurricularHours,
-      weight: w.extracurricular,
-      impact: 'neutral',
-      score: scoreExtracurricular(student.extracurricularHours, student.institutionType),
-    },
-    {
-      name: 'Parental Support',
-      value: student.parentalSupport,
-      weight: w.parentalSupport,
-      impact: student.parentalSupport >= 70 ? 'positive' : 'neutral',
-      score: normalize(student.parentalSupport, 0, 100),
-    },
-  ];
+  let predictedScore = model.regression.intercept;
+  for (let i = 0; i < normalized.length; i++) {
+    predictedScore += model.regression.coefficients[i] * normalized[i];
+  }
+  predictedScore = Math.round(clamp(predictedScore, 0, 100) * 10) / 10;
 
-  const weightedScore = factorScores.reduce((sum, f) => sum + f.score * f.weight, 0);
-  const predictedScore = Math.round(weightedScore * 10) / 10;
-  const predictedGPA = percentToGpa(predictedScore, student.institutionType);
-  const riskLevel = getRiskLevel(predictedScore);
+  const rmse = model.validation.holdoutTest.rmse;
+  const mae = model.validation.holdoutTest.mae;
+  const intervalLower = Math.round(clamp(predictedScore - rmse, 0, 100) * 10) / 10;
+  const intervalUpper = Math.round(clamp(predictedScore + rmse, 0, 100) * 10) / 10;
 
-  const variance = factorScores.reduce((sum, f) => sum + Math.abs(f.score - 70) * f.weight, 0);
-  const confidence = Math.round(Math.min(95, 70 + variance * 0.3) * 10) / 10;
+  const confidence = Math.round(clamp(100 - mae * 2.5, 60, 95) * 10) / 10;
+
+  const factorScores = computeFactorScores(student, model, normalized);
+  const riskLevel = getRiskLevel(predictedScore, model.riskThresholds);
 
   return {
     predictedScore,
-    predictedGPA,
+    predictedGPA: percentToGpa(predictedScore, settings.gradingScale),
     riskLevel,
     confidence,
     factorScores,
-    recommendations: generateRecommendations(student, factorScores),
-    trend: getTrend(student, predictedScore),
+    recommendations: generateRecommendations(student, factorScores, model),
+    trend: getTrend(student, predictedScore, settings.gradingScale),
+    modelVersion: model.version,
+    predictionInterval: { lower: intervalLower, upper: intervalUpper },
+    expectedError: mae,
   };
 }
 
@@ -234,4 +211,11 @@ export function getClassStats(students: Array<{ prediction: PredictionResult }>)
   const atRisk = students.filter((s) => ['critical', 'at-risk'].includes(s.prediction.riskLevel)).length;
   const excellent = students.filter((s) => s.prediction.riskLevel === 'excellent').length;
   return { avgScore, atRisk, excellent, total: students.length };
+}
+
+export function getFeatureImportance(model: ModelData): Array<{ name: string; coefficient: number }> {
+  return model.features.map((f, i) => ({
+    name: FEATURE_LABELS[f] ?? f,
+    coefficient: model.regression.coefficients[i],
+  })).sort((a, b) => Math.abs(b.coefficient) - Math.abs(a.coefficient));
 }

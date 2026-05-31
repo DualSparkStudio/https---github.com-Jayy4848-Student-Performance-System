@@ -8,10 +8,11 @@ interface StudentsListProps {
   students: StoredStudent[];
   onDelete: (id: string) => void;
   onExport: () => void;
-  onImport: (file: File) => void;
+  onImportJson: (file: File) => void;
+  onImportCsv: (file: File) => void;
 }
 
-export function StudentsList({ students, onDelete, onExport, onImport }: StudentsListProps) {
+export function StudentsList({ students, onDelete, onExport, onImportJson, onImportCsv }: StudentsListProps) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<string>('all');
 
@@ -52,16 +53,26 @@ export function StudentsList({ students, onDelete, onExport, onImport }: Student
           </select>
           <button className="btn-secondary" onClick={onExport}>
             <Download className="w-4 h-4" />
-            Export
+            Export JSON
           </button>
           <label className="btn-secondary cursor-pointer">
             <Upload className="w-4 h-4" />
-            Import
+            Import JSON
             <input
               type="file"
               accept=".json"
               className="hidden"
-              onChange={(e) => e.target.files?.[0] && onImport(e.target.files[0])}
+              onChange={(e) => e.target.files?.[0] && onImportJson(e.target.files[0])}
+            />
+          </label>
+          <label className="btn-secondary cursor-pointer">
+            <Upload className="w-4 h-4" />
+            Import CSV
+            <input
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && onImportCsv(e.target.files[0])}
             />
           </label>
         </div>

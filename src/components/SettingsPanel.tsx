@@ -73,13 +73,17 @@ export function SettingsPanel({ settings, onChange, onSave }: SettingsPanelProps
       <div className="glass-card">
         <h3 className="font-display font-semibold text-white mb-3">About EduPredict</h3>
         <p className="text-sm text-gray-400 leading-relaxed">
-          EduPredict uses a weighted multi-factor model trained on educational research to forecast
-          student outcomes. Factors include attendance, prior GPA, study habits, assignment completion,
-          exam performance, participation, sleep, and extracurricular balance — with different weights
-          for schools vs. colleges.
+          EduPredict v2 uses a <strong className="text-gray-200">validated Ridge Regression model</strong> trained
+          on 1,044 real student records from the UCI Student Performance Dataset. The model achieves 80.8% R²
+          with ±4.8% mean error on grade prediction — suitable for real institutional decision-support.
         </p>
+        <ul className="mt-3 space-y-1 text-xs text-gray-500">
+          <li>• Use alongside teacher judgment, not as sole decision basis</li>
+          <li>• Export data regularly — stored locally in browser</li>
+          <li>• Retrain with your institution&apos;s data for best local accuracy</li>
+        </ul>
         <p className="text-xs text-gray-600 mt-4">
-          All data is stored locally in your browser. No server required — perfect for Netlify deployment.
+          See the Validation tab for full metrics, methodology, and research citation.
         </p>
       </div>
     </motion.div>

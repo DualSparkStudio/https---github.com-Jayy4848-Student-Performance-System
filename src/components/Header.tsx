@@ -3,9 +3,10 @@ import { GraduationCap, Sparkles } from 'lucide-react';
 
 interface HeaderProps {
   institutionName: string;
+  modelVersion?: string;
 }
 
-export function Header({ institutionName }: HeaderProps) {
+export function Header({ institutionName, modelVersion }: HeaderProps) {
   return (
     <motion.header
       initial={{ opacity: 0, y: -20 }}
@@ -25,9 +26,11 @@ export function Header({ institutionName }: HeaderProps) {
             <p className="text-xs text-gray-500">{institutionName}</p>
           </div>
         </div>
-        <div className="hidden sm:flex items-center gap-2 text-xs text-gray-500">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          Prediction Engine Active
+        <div className="hidden sm:flex items-center gap-3 text-xs">
+          <span className="flex items-center gap-2 text-gray-500">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            Validated Model {modelVersion ? `v${modelVersion}` : 'Active'}
+          </span>
         </div>
       </div>
     </motion.header>

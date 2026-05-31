@@ -1,98 +1,121 @@
-# EduPredict — Student Performance Prediction System
+# EduPredict — Validated Student Performance Prediction System
 
-A modern, AI-powered student performance prediction tool for **schools and colleges**. Predict outcomes, identify at-risk students, and get actionable recommendations — all in a stunning dashboard that deploys seamlessly to **Netlify**.
+A **research-validated** student performance prediction tool for schools and colleges. Trained on the [UCI Student Performance Dataset](https://archive.ics.uci.edu/dataset/320/student+performance) with documented accuracy metrics. Deploys to **Netlify** as a static app.
 
-![EduPredict](https://img.shields.io/badge/Deploy-Netlify-00C7B7?style=for-the-badge&logo=netlify)
-![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript)
+## Validation Results
+
+| Metric | Value | Meaning |
+|--------|-------|---------|
+| **R² (5-Fold CV)** | 0.808 | Model explains ~81% of grade variance |
+| **MAE** | 4.8% | Average prediction error on final grade |
+| **Holdout R²** | 0.807 | Independent 20% test set performance |
+| **Risk Tier Accuracy** | 73.7% | Correct at-risk classification rate |
+| **Training Samples** | 1,044 | Real student records (Math + Portuguese) |
 
 ## Features
 
-- **Multi-factor prediction engine** — Attendance, GPA, study hours, assignments, exams, participation, sleep, extracurriculars, and parental support
-- **School & College modes** — Different weight profiles for K-12 vs. higher education
-- **Risk classification** — Critical, At Risk, Moderate, Good, Excellent
-- **Smart recommendations** — Personalized intervention suggestions
-- **Dashboard analytics** — Class averages, risk distribution charts, recent predictions
-- **Student management** — Search, filter, export/import JSON data
-- **100% client-side** — No backend required; data stored in browser localStorage
-- **Netlify-ready** — Static SPA with SPA redirect rules included
+- **Validated ML model** — Ridge Regression trained on UCI benchmark dataset
+- **Validation dashboard** — Full metrics, methodology, feature importance, citation
+- **Prediction intervals** — ±RMSE confidence bounds on every prediction
+- **CSV bulk import** — Import student rosters from spreadsheets
+- **JSON export/import** — Backup and transfer student records
+- **School & College modes** — Configurable institution settings
+- **Netlify-ready** — Static deployment, no backend required
 
-## Quick Start (Local)
+## Quick Start
 
 ```bash
+# Install frontend dependencies
 npm install
-npm run dev
-```
 
-Open [http://localhost:5173](http://localhost:5173)
+# Train/refresh the validated model (requires Python 3.10+)
+pip install -r scripts/requirements.txt
+npm run train
+
+# Run locally
+npm run dev
+
+# Production build
+npm run build
+```
 
 ## Deploy to Netlify
 
-### Option 1: Git-based deploy (recommended)
-
-1. Push this repo to GitHub/GitLab/Bitbucket
-2. Go to [Netlify](https://app.netlify.com) → **Add new site** → **Import an existing project**
-3. Connect your repository
-4. Netlify auto-detects settings from `netlify.toml`:
+1. Push to GitHub
+2. Connect repo on [Netlify](https://app.netlify.com)
+3. Build settings (auto-detected from `netlify.toml`):
    - **Build command:** `npm run build`
    - **Publish directory:** `dist`
-5. Click **Deploy site**
+4. Deploy
 
-### Option 2: Manual deploy
-
-```bash
-npm install
-npm run build
-```
-
-Drag and drop the `dist` folder onto [Netlify Drop](https://app.netlify.com/drop).
-
-### Option 3: Netlify CLI
-
-```bash
-npm install -g netlify-cli
-npm run build
-netlify deploy --prod --dir=dist
-```
+> **Note:** Run `npm run train` before deploying to ensure `public/model/model.json` exists in the build.
 
 ## How Prediction Works
 
-EduPredict uses a research-informed weighted scoring model:
+### 1. Training (offline, reproducible)
 
-| Factor | School Weight | College Weight |
-|--------|--------------|----------------|
-| Attendance | 18% | 12% |
-| Previous GPA | 15% | 20% |
-| Study Hours | 12% | 18% |
-| Assignments | 14% | 15% |
-| Exam Scores | 16% | 18% |
-| Participation | 8% | 6% |
-| Sleep | 7% | 5% |
-| Extracurricular | 4% | 3% |
-| Parental Support | 6% | 3% |
+```
+scripts/train_model.py
+├── Loads UCI Student Performance Dataset (1,044 students)
+├── Maps research features → application input fields
+├── Trains Ridge Regression with StandardScaler
+├── 5-fold cross-validation + 80/20 holdout test
+└── Exports public/model/model.json with weights + metrics
+```
 
-Each factor is normalized to 0–100, combined via weighted sum, and mapped to risk tiers with tailored recommendations.
+### 2. Prediction (in browser)
+
+```
+Student Input → Z-score normalization → Ridge Regression → Predicted Grade (0-100%)
+                                              ↓
+                                    Risk Tier + Recommendations
+                                    Prediction Interval (±RMSE)
+```
+
+### 3. Feature Importance (validated coefficients)
+
+| Feature | Impact |
+|---------|--------|
+| Previous GPA | Strongest predictor (+15.3) |
+| Exam Performance | High (+2.3) |
+| Assignment Completion | Moderate (+1.0) |
+| Attendance | Moderate |
+| Study Hours | Moderate |
+
+## CSV Import Format
+
+```csv
+name,rollNumber,grade,institutionType,attendance,previousGPA,studyHoursPerWeek,assignmentCompletion,examScoreAvg,participationScore,sleepHours,extracurricularHours,parentalSupport
+John Smith,STU-001,Grade 10,school,92,3.4,12,88,75,80,7.5,4,78
+```
+
+## Retrain for Your Institution
+
+For best accuracy at your school/college, replace `scripts/data/` with your historical student data (matching the feature columns) and re-run:
+
+```bash
+python scripts/train_model.py
+npm run build
+```
+
+## Research Citation
+
+> Cortez and Silva (2008). *Using Data Mining To Predict Secondary School Student Performance.*  
+> UCI Machine Learning Repository. https://archive.ics.uci.edu/dataset/320/student+performance
+
+## Important Notice for Institutions
+
+- Predictions are **decision-support tools**, not replacements for teacher judgment
+- Model was validated on **secondary school data from Portugal**
+- Data is stored **locally in the browser** — export regularly
+- For production multi-user deployment, consider adding a backend (Firebase/Supabase)
 
 ## Tech Stack
 
-- **React 18** + **TypeScript** + **Vite**
-- **Tailwind CSS** — Dark glassmorphism UI
-- **Framer Motion** — Smooth animations
-- **Recharts** — Radar & bar charts
-- **Lucide React** — Icons
-
-## Project Structure
-
-```
-├── netlify.toml          # Netlify build & SPA redirects
-├── src/
-│   ├── components/       # UI components
-│   ├── lib/
-│   │   ├── predictor.ts  # Prediction engine
-│   │   └── storage.ts    # LocalStorage helpers
-│   └── types/            # TypeScript types
-└── public/
-```
+- React 18 + TypeScript + Vite
+- Tailwind CSS + Framer Motion + Recharts
+- scikit-learn (training pipeline)
+- Netlify (deployment)
 
 ## License
 

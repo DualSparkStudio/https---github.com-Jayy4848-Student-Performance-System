@@ -28,6 +28,9 @@ export interface PredictionResult {
   factorScores: FactorScore[];
   recommendations: string[];
   trend: 'improving' | 'stable' | 'declining';
+  modelVersion: string;
+  predictionInterval: { lower: number; upper: number };
+  expectedError: number;
 }
 
 export interface FactorScore {
